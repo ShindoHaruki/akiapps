@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>SF6 AKI コンボ検索</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .filter-card {
+            background-color: #f3f4f6;
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-purple-100 min-h-screen p-4 sm:p-8 flex justify-center">
+    <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl w-full">
+        <div class="bg-white p-6 sm:p-8 rounded-2xl shadow-xl max-w-2xl w-full">
+            <div class="flex flex-col items-center mb-6">
+                <h1 class="text-3xl font-bold text-gray-800 tracking-wide text-center">A.K.I. Combo Navigator</h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    A.K.I.のコンボを見つけよう
+                </p>
+            </div>
+        
+        <div class="space-y-6 mb-8">
+            <div class="filter-card">
+                <label for="situation" class="block text-sm font-semibold text-gray-700 mb-2">画面位置:</label>
+                <select id="situation" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="どこでも">どこでも</option>
+                    <option value="中央">中央</option>
+                    <option value="画面端">画面端</option>
+                </select>
+            </div>
+
+            <div class="filter-card">
+                <label for="poison" class="block text-sm font-semibold text-gray-700 mb-2">毒の有無:</label>
+                <select id="poison" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="気にしない">気にしない</option>
+                    <option value="無し">無し</option>
+                    <option value="有り">有り</option>
+                </select>
+            </div>
+
+            <div class="filter-card">
+                <label for="opponent_state" class="block text-sm font-semibold text-gray-700 mb-2">相手の状態:</label>
+                <select id="opponent_state" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="どちらでも">どちらでも</option>
+                    <option value="立ち">立ち</option>
+                    <option value="しゃがみ">しゃがみ</option>
+                </select>
+            </div>
+
+            <div class="filter-card">
+                <label for="gauge_usage" class="block text-sm font-semibold text-gray-700 mb-2">Dゲージ:</label>
+                <select id="gauge_usage" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="気にしない">気にしない</option>
+                    <option value="3本以下">3本以下</option>
+                    <option value="4本以上">4本以上</option>
+                </select>
+            </div>
+
+            <div class="filter-card">
+                <label for="lethal_route" class="block text-sm font-semibold text-gray-700 mb-2">SAが入るかどうか:</label>
+                <select id="lethal_route" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="気にしない">気にしない</option>
+                    <option value="SA1のみ">SA1のみ</option>
+                    <option value="SA2のみ">SA2のみ</option>
+                    <option value="SA3のみ">SA3のみ</option>
+                    <option value="SA1とSA2">SA1とSA2</option>
+                    <option value="SA2とSA3">SA2とSA3</option>
+                    <option value="SA1とSA3">SA1とSA3</option>
+                    <option value="SA1とSA3">すべてのSA可</option>
+                </select>
+            </div>
+
+            <div class="filter-card">
+                <label for="after_combo_situation" class="block text-sm font-semibold text-gray-700 mb-2">コンボ後の状況(リーサルの場合は「リーサル」と入力):</label>
+                <input type="text" id="after_combo_situation" class="block w-full rounded-lg border-gray-300 shadow-sm text-gray-700 p-2.5 bg-white transition duration-150 ease-in-out focus:ring-2 focus:ring-blue-500 focus:border-blue-500" placeholder="例：+39, +44">
+            </div>
+
+            <button onclick="searchCombos()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg shadow-md transition duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2">
+                検索
+            </button>
+        </div>
+        
+        <h2 class="text-2xl font-semibold mb-4 text-center text-gray-800">検索結果</h2>
+        <div id="results" class="space-y-6"></div>
+    </div>
+    
+    <script>
+        async function searchCombos() {
+            const situation = document.getElementById('situation').value;
+            const poison = document.getElementById('poison').value;
+            const opponent_state = document.getElementById('opponent_state').value;
+            const gauge_usage = document.getElementById('gauge_usage').value;
+            const lethal_route = document.getElementById('lethal_route').value;
+            const after_combo_situation = document.getElementById('after_combo_situation').value;
+
+            const params = new URLSearchParams();
+            params.append('situation', situation);
+            params.append('poison', poison);
+            params.append('opponent_state', opponent_state);
+            params.append('gauge_usage', gauge_usage);
+            params.append('lethal_route', lethal_route);
+            params.append('after_combo_situation', after_combo_situation);
+
+            const url = `/api/combos?${params.toString()}`;
+
+            try {
+                const response = await fetch(url);
+                const combos = await response.json();
+
+                const resultsDiv = document.getElementById('results');
+                resultsDiv.innerHTML = '';
+
+                if (combos.length === 0) {
+            resultsDiv.innerHTML = '<p class="text-center text-gray-500">該当するコンボは見つかりませんでした。</p>';
+        } else {
+            combos.forEach(combo => {
+                const comboDiv = document.createElement('div');
+                comboDiv.className = 'bg-white p-6 rounded-2xl shadow-md border border-gray-200';
+
+                const videoHtml = combo.youtube_embed_url 
+                    ? `<iframe class="w-full aspect-video rounded-xl shadow-lg mt-4" src="${combo.youtube_embed_url}" frameborder="0" allowfullscreen></iframe>`
+                    : '';
+
+                const formattedComment = combo.comment ? combo.comment.replace(/\n/g, '<br>') : '';
+                
+                comboDiv.innerHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <div class="flex-1">
+                            <p class="font-extrabold text-2xl text-gray-900 leading-tight mb-1">${combo.title}</p>
+                            <p class="font-mono text-lg text-gray-700">${combo.combo_string}</p>
+                        </div>
+                    </div>
+
+                    <div class="space-y-2 text-sm text-gray-600 mb-4">
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">画面位置:</span>
+                            <span class="text-right">${combo.situation}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">毒の有無:</span>
+                            <span class="text-right">${combo.poison}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">相手の状態:</span>
+                            <span class="text-right">${combo.opponent_state}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">Dゲージ:</span>
+                            <span class="text-right">${combo.gauge_usage}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">コンボ後状況:</span>
+                            <span class="text-right">${combo.after_combo_situation || 'なし'}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">SAが入るかどうか:</span>
+                            <span class="text-right">${combo.lethal_route || 'なし'}</span>
+                        </div>
+                        <div class="flex justify-between border-b border-gray-200 pb-1">
+                            <span class="font-medium">ダメージ:</span>
+                            <span class="text-right">${combo.damage || 'なし'}</span>
+                        </div>
+                    </div>
+                    
+                    ${formattedComment ? `<p class="text-sm text-gray-500 mb-4">${formattedComment}</p>` : ''}
+                    ${videoHtml}
+                `;
+                resultsDiv.appendChild(comboDiv);
+            });
+                }
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                document.getElementById('results').innerHTML = '<p class="text-center text-gray-500">データの取得に失敗しました。</p>';
+            }
+        }
+    </script>
+</body>
+</html>
