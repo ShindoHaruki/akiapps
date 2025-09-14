@@ -1,6 +1,6 @@
 Flask
 gunicorn
-gspread
+gspread==5.12.0
 google-auth
 requests==2.27.1
 urllib3==1.26.15
