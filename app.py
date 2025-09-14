@@ -1,69 +1,43 @@
 import os
+import json
 import re
 import gspread
 from google.oauth2.service_account import Credentials
 from flask import Flask, jsonify, request
-from models import db, Combo
 
-# 認証設定
+# 環境変数から認証情報を取得
+CREDS_JSON = json.loads(os.environ.get("SHEETS_CREDENTIALS"))
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-CREDS = Credentials.from_service_account_file('credentials.json', scopes=SCOPES)
+CREDS = Credentials.from_service_account_info(CREDS_JSON, scopes=SCOPES)
 CLIENT = gspread.authorize(CREDS)
-SPREADSHEET_ID = '1xDQA97pQJyiZ_CWMmOAz6-87xK3h3FwJ4NtE5ZMXo70'
+# === スプレッドシートのIDをここに貼り付け ===
+# スプレッドシートのURLからIDを取得してください
+SPREADSHEET_ID = 'ここにあなたのスプレッドシートIDを貼り付け'
 
 app = Flask(__name__)
 
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///combos.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-
-db.init_app(app)
+# グローバル変数としてデータを格納
+COMBO_DATA = []
 
 def load_data_from_sheet():
-    """スプレッドシートからデータを読み込み、データベースを更新する"""
+    """スプレッドシートからデータを読み込み、グローバル変数に格納する"""
     try:
         sheet = CLIENT.open_by_key(SPREADSHEET_ID).sheet1
         all_data = sheet.get_all_values()
         headers = all_data[0]
         records = all_data[1:]
-    except gspread.exceptions.APIError as e:
-        print(f"APIエラー: スプレッドシートの共有設定を確認してください。{e}")
-        return
+        
+        # データを辞書形式のリストに変換
+        global COMBO_DATA
+        COMBO_DATA = [dict(zip(headers, row)) for row in records]
+        print("スプレッドシートからデータをロードしました。")
     except Exception as e:
         print(f"データの読み込みに失敗しました: {e}")
-        return
+        COMBO_DATA = []
 
-    with app.app_context():
-        db.session.query(Combo).delete()
-        db.session.commit()
+# アプリケーション起動時にデータを読み込む
+load_data_from_sheet()
 
-        new_combos = []
-        for row in records:
-            record_dict = dict(zip(headers, row))
-            
-            new_combo = Combo(
-                title=record_dict.get('title'),
-                combo_string=record_dict.get('combo_string'),
-                situation=record_dict.get('situation'),
-                poison=record_dict.get('poison'),
-                opponent_state=record_dict.get('opponent_state'),
-                gauge_usage=record_dict.get('gauge_usage'),
-                comment=record_dict.get('comment'),
-                after_combo_situation=record_dict.get('after_combo_situation'),
-                lethal_route=record_dict.get('lethal_route'),
-                damage=record_dict.get('damage'),
-                youtube_url=record_dict.get('youtube_url')
-            )
-            new_combos.append(new_combo)
-        
-        db.session.add_all(new_combos)
-        db.session.commit()
-        print("スプレッドシートからデータベースを更新しました。")
-
-with app.app_context():
-    db.create_all()
-    load_data_from_sheet()
-
-# コンボ検索API
 @app.route('/api/combos', methods=['GET'])
 def get_combos():
     situation = request.args.get('situation')
@@ -73,42 +47,43 @@ def get_combos():
     lethal_route = request.args.get('lethal_route')
     after_combo_situation = request.args.get('after_combo_situation')
 
-    query = Combo.query
+    # メモリ上のデータに対してフィルタリングを実行
+    filtered_combos = COMBO_DATA
+    
     if situation and situation != 'どこでも':
-        query = query.filter_by(situation=situation)
+        filtered_combos = [c for c in filtered_combos if c.get('situation') == situation]
     if poison and poison != '気にしない':
-        query = query.filter_by(poison=poison)
+        filtered_combos = [c for c in filtered_combos if c.get('poison') == poison]
     if opponent_state and opponent_state != 'どちらでも':
-        query = query.filter_by(opponent_state=opponent_state)
+        filtered_combos = [c for c in filtered_combos if c.get('opponent_state') == opponent_state]
     if gauge_usage and gauge_usage != '気にしない':
-        query = query.filter_by(gauge_usage=gauge_usage)
+        filtered_combos = [c for c in filtered_combos if c.get('gauge_usage') == gauge_usage]
     if lethal_route and lethal_route != '気にしない':
-        query = query.filter(Combo.lethal_route.like(f'%{lethal_route}%'))
+        filtered_combos = [c for c in filtered_combos if lethal_route in c.get('lethal_route', '')]
     if after_combo_situation and after_combo_situation != '':
-        # テキストボックスが空の場合はフィルタリングしない
-        query = query.filter(Combo.after_combo_situation.like(f'%{after_combo_situation}%'))
-
-    combos = query.all()
+        filtered_combos = [c for c in filtered_combos if after_combo_situation in c.get('after_combo_situation', '')]
 
     results = []
-    for combo in combos:
-        match = re.search(r'v=([^&]+)', combo.youtube_url)
+    for combo in filtered_combos:
+        # YouTube URLから動画IDを抽出
+        match = re.search(r'v=([^&]+)', combo.get('youtube_url', ''))
         youtube_embed_url = f'https://www.youtube.com/embed/{match.group(1)}' if match else None
 
         results.append({
-            'title': combo.title,
-            'combo_string': combo.combo_string,
-            'situation': combo.situation,
-            'poison': combo.poison,
-            'opponent_state': combo.opponent_state,
-            'gauge_usage': combo.gauge_usage,
-            'comment': combo.comment,
-            'after_combo_situation': combo.after_combo_situation,
-            'lethal_route': combo.lethal_route,
-            'damage': combo.damage,
+            'title': combo.get('title'),
+            'combo_string': combo.get('combo_string'),
+            'situation': combo.get('situation'),
+            'poison': combo.get('poison'),
+            'opponent_state': combo.get('opponent_state'),
+            'gauge_usage': combo.get('gauge_usage'),
+            'comment': combo.get('comment'),
+            'after_combo_situation': combo.get('after_combo_situation'),
+            'lethal_route': combo.get('lethal_route'),
+            'damage': combo.get('damage'),
             'youtube_embed_url': youtube_embed_url
         })
     return jsonify(results)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port, debug=True)
