@@ -6,7 +6,8 @@ from google.oauth2.service_account import Credentials
 from flask import Flask, jsonify, request
 
 # 環境変数から認証情報を取得
-CREDS_JSON = json.loads(os.environ.get("SHEETS_CREDENTIALS"))
+with open("credentials.json", "r") as f:
+    CREDS_JSON = json.load(f)
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 CREDS = Credentials.from_service_account_info(CREDS_JSON, scopes=SCOPES)
 CLIENT = gspread.authorize(CREDS)
