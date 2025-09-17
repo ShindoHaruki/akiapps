@@ -48,6 +48,10 @@ def load_data_from_sheet():
 # 起動時にロード
 load_data_from_sheet()
 
+@app.route("/")
+def index():
+    return "Hello from Flask"
+
 @app.route('/api/combos', methods=['GET'])
 def get_combos():
     try:
