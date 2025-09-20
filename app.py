@@ -2,17 +2,25 @@ import os
 import json
 import re
 import gspread
+import logging
 from google.oauth2.service_account import Credentials
 from flask import Flask, jsonify, request
 
 app = Flask(__name__)
+
+# ===== ログ設定 =====
+logging.basicConfig(
+    filename='/home/ubuntu/akiapps/app.log',
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
 
 # グローバル変数としてデータを格納
 COMBO_DATA = []
 
 # --- Google スプレッドシート認証 ---
 try:
-    with open("credentials.json", "r") as f:
+    with open("/home/ubuntu/akiapps/credentials.json", "r") as f:
         CREDS_JSON = json.load(f)
     SCOPES = [
         'https://www.googleapis.com/auth/spreadsheets',
@@ -21,7 +29,7 @@ try:
     CREDS = Credentials.from_service_account_info(CREDS_JSON, scopes=SCOPES)
     CLIENT = gspread.authorize(CREDS)
 except Exception as e:
-    print(f"Google認証情報の読み込みに失敗しました: {e}")
+    logging.error(f"Google認証情報の読み込みに失敗しました: {e}")
     CLIENT = None
 
 SPREADSHEET_ID = '1xDQA97pQJyiZ_CWMmOAz6-87xK3h3FwJ4NtE5ZMXo70'
@@ -30,7 +38,7 @@ def load_data_from_sheet():
     """スプレッドシートからデータを読み込み、グローバル変数に格納する"""
     global COMBO_DATA
     if CLIENT is None:
-        print("Googleクライアントが利用できません。データをロードできません。")
+        logging.warning("Googleクライアントが利用できません。データをロードできません。")
         COMBO_DATA = []
         return
 
@@ -40,9 +48,9 @@ def load_data_from_sheet():
         headers = all_data[0]
         records = all_data[1:]
         COMBO_DATA = [dict(zip(headers, row)) for row in records]
-        print("スプレッドシートからデータをロードしました。")
+        logging.info("スプレッドシートからデータをロードしました。")
     except Exception as e:
-        print(f"データの読み込みに失敗しました: {e}")
+        logging.error(f"データの読み込みに失敗しました: {e}")
         COMBO_DATA = []
 
 # 起動時にロード
@@ -98,10 +106,9 @@ def get_combos():
         return jsonify(results)
 
     except Exception as e:
-        # Gunicorn 経由でも 500 を防ぐため例外を捕捉
-        print(f"API処理中に例外が発生しました: {e}")
+        logging.error(f"API処理中に例外が発生しました: {e}")
         return jsonify([]), 200
 
 if __name__ == '__main__':
     port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port, debug=True)
+    app.run(host="0.0.0.0", port=port)
