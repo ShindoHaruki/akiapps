@@ -35,22 +35,48 @@ except Exception as e:
 SPREADSHEET_ID = '1xDQA97pQJyiZ_CWMmOAz6-87xK3h3FwJ4NtE5ZMXo70'
 
 def load_data_from_sheet():
-    """スプレッドシートからデータを読み込み、グローバル変数に格納する"""
+    """スプレッドシートからデータを読み込み、COMBO_DATA に格納"""
     global COMBO_DATA
-    if CLIENT is None:
-        logging.warning("Googleクライアントが利用できません。データをロードできません。")
-        COMBO_DATA = []
-        return
 
     try:
-        sheet = CLIENT.open_by_key(SPREADSHEET_ID).sheet1
+        # 認証情報読み込み
+        with open("credentials.json", "r") as f:
+            creds_json = json.load(f)
+
+        scopes = [
+            'https://www.googleapis.com/auth/spreadsheets',
+            'https://www.googleapis.com/auth/drive'
+        ]
+        creds = Credentials.from_service_account_info(creds_json, scopes=scopes)
+        client = gspread.authorize(creds)
+        print("[INFO] Google認証 OK")
+
+        # シート取得
+        sheet = client.open_by_key(SPREADSHEET_ID).sheet1
         all_data = sheet.get_all_values()
+
+        if not all_data or len(all_data) < 2:
+            print("[WARN] データが存在しません")
+            COMBO_DATA = []
+            return
+
         headers = all_data[0]
         records = all_data[1:]
         COMBO_DATA = [dict(zip(headers, row)) for row in records]
-        logging.info("スプレッドシートからデータをロードしました。")
+
+        print(f"[INFO] データロード成功: {len(COMBO_DATA)} 件")
+    
+    except FileNotFoundError:
+        print("[ERROR] credentials.json が見つかりません")
+        COMBO_DATA = []
+    except gspread.SpreadsheetNotFound:
+        print("[ERROR] スプレッドシートが見つかりません。SPREADSHEET_ID を確認してください")
+        COMBO_DATA = []
+    except gspread.exceptions.APIError as e:
+        print(f"[ERROR] Google API エラー: {e}")
+        COMBO_DATA = []
     except Exception as e:
-        logging.error(f"データの読み込みに失敗しました: {e}")
+        print(f"[ERROR] 不明なエラー: {e}")
         COMBO_DATA = []
 
 # 起動時にロード
