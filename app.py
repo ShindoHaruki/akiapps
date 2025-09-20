@@ -40,8 +40,8 @@ def load_data_from_sheet():
 
     try:
         # 認証情報読み込み
-        with open("credentials.json", "r") as f:
-            creds_json = json.load(f)
+        with open("/home/ubuntu/akiapps/credentials.json", "r") as f:
+        creds_json = json.load(f)
 
         scopes = [
             'https://www.googleapis.com/auth/spreadsheets',
